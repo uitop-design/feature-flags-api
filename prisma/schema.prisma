@@ -1,0 +1,94 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AuditAction {
+  FLAG_CREATED
+  FLAG_UPDATED
+  FLAG_DELETED
+  STATE_UPDATED
+  ENVIRONMENT_CREATED
+  SDK_KEY_ROTATED
+
+  @@map("audit_action")
+}
+
+model Project {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  key          String        @unique @db.VarChar(48)
+  name         String        @db.VarChar(64)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  environments Environment[]
+  flags        Flag[]
+  auditEntries AuditEntry[]
+
+  @@map("projects")
+}
+
+model Environment {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  projectId String      @map("project_id") @db.Uuid
+  key       String      @db.VarChar(48)
+  name      String      @db.VarChar(64)
+  sdkKey    String      @unique @map("sdk_key") @db.VarChar(64)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  states    FlagState[]
+
+  @@unique([projectId, key])
+  @@map("environments")
+}
+
+model Flag {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  projectId   String      @map("project_id") @db.Uuid
+  key         String      @db.VarChar(48)
+  name        String      @db.VarChar(64)
+  description String?     @db.VarChar(500)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  states      FlagState[]
+
+  @@unique([projectId, key])
+  @@map("flags")
+}
+
+model FlagState {
+  flagId            String      @map("flag_id") @db.Uuid
+  environmentId     String      @map("environment_id") @db.Uuid
+  enabled           Boolean     @default(false)
+  rolloutPercentage Int         @default(100) @map("rollout_percentage")
+  includeUsers      String[]    @default([]) @map("include_users")
+  excludeUsers      String[]    @default([]) @map("exclude_users")
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  flag              Flag        @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  environment       Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@id([flagId, environmentId])
+  @@index([environmentId])
+  @@map("flag_states")
+}
+
+model AuditEntry {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  projectId      String      @map("project_id") @db.Uuid
+  action         AuditAction
+  flagKey        String?     @map("flag_key") @db.VarChar(48)
+  environmentKey String?     @map("environment_key") @db.VarChar(48)
+  before         Json?
+  after          Json?
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("audit_entries")
+}
