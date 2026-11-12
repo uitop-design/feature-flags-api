@@ -76,9 +76,10 @@ export class FlagsService {
     const projectId = await findProjectId(this.prisma, projectKey);
     const where: Prisma.FlagWhereInput = { projectId };
     if (query.q) {
+      const contains = escapeLikePattern(query.q);
       where.OR = [
-        { key: { contains: query.q, mode: 'insensitive' } },
-        { name: { contains: query.q, mode: 'insensitive' } },
+        { key: { contains, mode: 'insensitive' } },
+        { name: { contains, mode: 'insensitive' } },
       ];
     }
     const [flags, total] = await Promise.all([
@@ -227,6 +228,10 @@ export class FlagsService {
     }
     return flag;
   }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 function flagNotFound(projectKey: string, flagKey: string): NotFoundException {
