@@ -19,7 +19,7 @@ export class RedisService implements OnApplicationShutdown {
       enableOfflineQueue: false,
       connectTimeout: 2000,
       commandTimeout: 1000,
-      retryStrategy: (times) => Math.min(times * 200, 2000),
+      retryStrategy: (times) => Math.min(times * 1000, 5000),
     });
     this.client.on('ready', () => this.markUp());
     this.client.on('error', (error) => this.markDown(error));
